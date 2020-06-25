@@ -181,6 +181,7 @@ TEST(LockManagerTest, MultithreadLocking) {
             auto mode =
                 sharedDistr(engine) ? LockMode::Shared : LockMode::Exclusive;
             transaction.addLock(dataItem, mode);
+            alreadyLocked.insert(dataItem);
           }
         } catch (const DeadLockError &) {
           ++aborts;
