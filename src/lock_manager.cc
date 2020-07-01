@@ -41,14 +41,18 @@ void WaitsForGraph::addWaitsFor(const Transaction &transaction, const Lock &lock
 }
 
 void WaitsForGraph::removeTransaction(const Transaction &transaction) {
-  throw std::logic_error{"not implemented"};
+    // remove from current_nodes
+    auto to_erase = current_nodes.find(&transaction);
+    current_nodes.erase(to_erase);
+    // remove from adj
+    adj.erase(adj.begin() + to_erase->second.transaction_id);
 }
 
 // Runs DFS in graph -> check for cycle
 /// @return true for cycle, false for no cycle
 bool WaitsForGraph::checkForCycle() {
-    bool *visited = new bool[num_nodes];
-    bool *recStack = new bool [num_nodes];
+    std::shared_ptr<bool> visited (new bool[num_nodes]);
+    std::shared_ptr<bool> recStack (new bool[num_nodes]);
 
     for (uint16_t i = 1; i <= num_nodes; ++i) {
         if (dfs(i, visited, recStack)) {
@@ -58,22 +62,27 @@ bool WaitsForGraph::checkForCycle() {
     return false;
 }
 
-bool WaitsForGraph::dfs(uint16_t id, bool visited[], bool *recStack) {
-    if (!visited[id]) {
-        visited[id] = true;
-        recStack[id] = true;
+bool WaitsForGraph:: dfs(uint16_t id, std::shared_ptr<bool> visited, std::shared_ptr<bool> recStack) {
+    if (!visited.get()[id]) {
+        visited.get()[id] = true;
+        recStack.get()[id] = true;
 
         std::list<Node>::iterator i;
         for (i = adj[id].begin(); i != adj[id].end(); ++i) {
+            // Check if still a node -> lazy garbage collection
+            if (current_nodes.find(&(*i).transaction) == current_nodes.end()) {
+                adj[id].erase(i);
+                continue;
+            }
             auto to = (*i).transaction_id;
-            if (!visited[to] && dfs(to, visited, recStack)) {
+            if (!visited.get()[to] && dfs(to, visited, recStack)) {
                 return true;
-            } else if (recStack[to]) {
+            } else if (recStack.get()[to]) {
                 return true;
             }
         }
     }
-    recStack[id] = false;
+    recStack.get()[id] = false;
     return false;
 }
 

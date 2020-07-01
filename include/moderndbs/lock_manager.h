@@ -89,7 +89,7 @@ public:
 
   bool checkForCycle();
 
-  bool dfs(uint16_t node, bool visited[], bool *recStack);
+  bool dfs(uint16_t id, std::shared_ptr<bool> visited, std::shared_ptr<bool> recStack);
 };
 
 /// A lock manager for concurrency-safe acquiring and releasing locks
