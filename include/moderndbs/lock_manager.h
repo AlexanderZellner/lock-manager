@@ -3,6 +3,8 @@
 #include <memory>
 #include <shared_mutex>
 #include <vector>
+#include <list>
+#include <unordered_map>
 
 namespace moderndbs {
 
@@ -60,12 +62,20 @@ class DeadLockError : std::exception {
   const char *what() const noexcept override { return "deadlock detected"; }
 };
 
+struct Node {
+    uint16_t transaction_id;
+    const Transaction& transaction;
+
+    Node(uint16_t id, const Transaction& tran):transaction_id(id), transaction(tran)  {}
+};
 /// A wait-for graph structure to detect deadlocks when transactions need to
 /// wait on another
 class WaitsForGraph {
 private:
   // TODO: add your implementation here
-
+  uint16_t num_nodes = 0;
+  std::vector<std::list<Node>> adj;
+  std::unordered_map<const Transaction*, Node> current_nodes;
 public:
   /// Add a wait-for relationship of the specified transaction on the specified
   /// lock, respectively the owners of the lock.
@@ -76,6 +86,10 @@ public:
   /// Remove the waits-for dependencies *to and from* this transaction from the
   /// waits-for graph
   void removeTransaction(const Transaction &transaction);
+
+  bool checkForCycle();
+
+  bool dfs(uint16_t node, bool visited[], bool *recStack);
 };
 
 /// A lock manager for concurrency-safe acquiring and releasing locks
