@@ -56,8 +56,12 @@ struct Lock : std::enable_shared_from_this<Lock> {
   /// Take a shared ownership of this lock
   std::shared_ptr<Lock> getAsSharedPtr() { return weak_from_this().lock(); }
 
+  static std::shared_ptr<Lock> construct() {
+      return std::shared_ptr<Lock>(new Lock(0), [](Lock* lock){ /**/});
+  }
+
   bool isExpired() const {
-      return !weak_from_this().expired();
+      return weak_from_this().expired();
   }
 };
 
