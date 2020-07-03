@@ -81,6 +81,21 @@ TEST(WaitsForTest, DeadLockFailsGracefully) {
 }
 
 // NOLINTNEXTLINE
+TEST(WaitsForTest, CycleOfTwo2) {
+    Transaction t1, t2, t3, t4;
+    auto l1 = Lock(1), l2 = Lock(2);
+    l1.ownership = l2.ownership = LockMode::Exclusive;
+    l1.owners.push_back(&t1);
+    l2.owners.push_back(&t4);
+
+    auto wfg = WaitsForGraph();
+    EXPECT_NO_THROW(wfg.addWaitsFor(t2, l1));
+    EXPECT_NO_THROW(wfg.addWaitsFor(t3, l1));
+    EXPECT_NO_THROW(wfg.addWaitsFor(t4, l1));
+    EXPECT_THROW(wfg.addWaitsFor(t1, l2), DeadLockError);
+}
+
+// NOLINTNEXTLINE
 TEST(LockManagerTest, SharedAcquire) {
   auto lockManager = LockManager(1024);
   auto t0 = Transaction(lockManager), t1 = Transaction(lockManager);

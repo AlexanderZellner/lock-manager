@@ -54,7 +54,11 @@ struct Lock : std::enable_shared_from_this<Lock> {
   explicit Lock(DataItem item) : item(item) {}
 
   /// Take a shared ownership of this lock
-  std::shared_ptr<Lock> getAsSharedPtr() { return shared_from_this(); }
+  std::shared_ptr<Lock> getAsSharedPtr() { return weak_from_this().lock(); }
+
+  bool isExpired() const {
+      return !weak_from_this().expired();
+  }
 };
 
 /// An exception that signals an avoided deadlock
@@ -76,6 +80,7 @@ private:
   uint16_t num_nodes = 0;
   std::vector<std::list<Node>> adj;
   std::unordered_map<const Transaction*, Node> current_nodes;
+  std::mutex latch;
 public:
   /// Add a wait-for relationship of the specified transaction on the specified
   /// lock, respectively the owners of the lock.
