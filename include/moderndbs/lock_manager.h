@@ -5,6 +5,7 @@
 #include <vector>
 #include <list>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace moderndbs {
 
@@ -45,11 +46,12 @@ struct Lock : std::enable_shared_from_this<Lock> {
   DataItem item;
   /// The actual lock
   std::shared_mutex lock;
-  std::shared_mutex edit_lock;
   /// The owners of the lock: One in case of Exclusive, multiple when Shared
   std::vector<const Transaction *> owners;
   /// The current locked state
   LockMode ownership = LockMode::Unlocked;
+
+  std::unordered_set<const Transaction*> waiting_queue;
 
   /// Constructor
   explicit Lock(DataItem item) : item(item) {}
@@ -100,6 +102,10 @@ public:
   bool checkForCycle();
 
   bool dfs(uint16_t id, std::shared_ptr<bool> visited, std::shared_ptr<bool> recStack);
+
+  bool updateWaitsFor(const Transaction& waiting_t, Transaction &holding_t);
+
+  void remove_save(const Transaction &transaction);
 };
 
 /// A lock manager for concurrency-safe acquiring and releasing locks
@@ -147,6 +153,8 @@ public:
 
   /// Delete a lock.
   void deleteLock(Lock *lock);
+
+  void save_destruct(const Transaction& transaction, std::shared_ptr<Lock>&& lock);
 };
 
 } // namespace moderndbs
