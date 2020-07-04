@@ -81,18 +81,21 @@ TEST(WaitsForTest, DeadLockFailsGracefully) {
 }
 
 // NOLINTNEXTLINE
-TEST(WaitsForTest, CycleOfTwo2) {
+TEST(WaitsForTest, CycleOfThree2) {
     Transaction t1, t2, t3, t4;
-    auto l1 = Lock(1), l2 = Lock(2);
-    l1.ownership = l2.ownership = LockMode::Exclusive;
+    auto l1 = Lock(6), l2 = Lock(14), l3 = Lock(1), l4 = Lock(13);
+    l4.ownership = l2.ownership = LockMode::Exclusive;
+    l1.ownership = l3.ownership = moderndbs::LockMode::Shared;
     l1.owners.push_back(&t1);
-    l2.owners.push_back(&t4);
+    l4.owners.push_back(&t4);
+    l2.owners.push_back(&t2);
+    l3.owners.push_back(&t3);
 
     auto wfg = WaitsForGraph();
-    EXPECT_NO_THROW(wfg.addWaitsFor(t2, l1));
-    EXPECT_NO_THROW(wfg.addWaitsFor(t3, l1));
-    EXPECT_NO_THROW(wfg.addWaitsFor(t4, l1));
-    EXPECT_THROW(wfg.addWaitsFor(t1, l2), DeadLockError);
+    EXPECT_NO_THROW(wfg.addWaitsFor(t1, l2));
+    EXPECT_NO_THROW(wfg.addWaitsFor(t2, l3));
+    EXPECT_NO_THROW(wfg.addWaitsFor(t3, l4));
+    EXPECT_THROW(wfg.addWaitsFor(t4, l1), DeadLockError);
 }
 
 // NOLINTNEXTLINE
@@ -181,7 +184,7 @@ TEST(LockManagerTest, MultithreadLocking) {
       auto dataItemDistr = std::geometric_distribution<DataItem>(.1);
       // 80% are shared accesses
       auto sharedDistr = std::bernoulli_distribution(0.8);
-      // Numer of locks is also geometrically distributed
+      // Number of locks is also geometrically distributed
       auto numLocksDistr = std::geometric_distribution<size_t>(.2);
       for (size_t j = 0; j < 20; ++j) {
         try {

@@ -45,6 +45,7 @@ struct Lock : std::enable_shared_from_this<Lock> {
   DataItem item;
   /// The actual lock
   std::shared_mutex lock;
+  std::shared_mutex edit_lock;
   /// The owners of the lock: One in case of Exclusive, multiple when Shared
   std::vector<const Transaction *> owners;
   /// The current locked state

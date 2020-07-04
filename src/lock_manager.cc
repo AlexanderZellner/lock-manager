@@ -1,5 +1,6 @@
 #include <unordered_map>
 #include "moderndbs/lock_manager.h"
+#include "cassert"
 
 namespace moderndbs {
 
@@ -10,6 +11,7 @@ void Transaction::addLock(DataItem item, LockMode mode) {
     std::shared_ptr<Lock> lock = lockManager->acquireLock(*this, item, mode);
     assert(lockManager->getLockMode(item) == mode);
     // add to lock list
+    assert(lock != nullptr);
     locks.push_back(lock);
 }
 
@@ -17,13 +19,17 @@ Transaction::~Transaction() {
     // unlock everything
     for (auto lock : locks) {
         if (lock->ownership == LockMode::Exclusive) {
+            lock->edit_lock.lock();
             lock->ownership = LockMode::Unlocked;
             lock->owners.clear();
+            lock->edit_lock.unlock();
             lock->lock.unlock();
         } else {
             std::find(lock->owners.begin(), lock->owners.end(), this);
             if (lock->owners.empty()) {
+                lock->edit_lock.lock();
                 lock->ownership = LockMode::Unlocked;
+                lock->edit_lock.unlock();
             }
             lock->lock.unlock_shared();
         }
@@ -126,59 +132,105 @@ std::shared_ptr<Lock> LockManager::acquireLock(Transaction &transaction, DataIte
 
     auto lock = chain.first;
     Lock* prevLock = nullptr;
-
+    std::unique_lock chain_latch(chain.latch);
     // lock chain
-    chain.latch.lock();
-
     while (true) {
         if (lock == nullptr) {
             // add new lock
             auto new_lock = lock->construct();
+            new_lock->edit_lock.lock();
             new_lock->ownership = mode;
             new_lock->item = dataItem;
             new_lock->owners.push_back(&transaction);
-            new_lock->next = nullptr;
+            //new_lock->next = nullptr;
             if (mode == LockMode::Exclusive) {
                 new_lock->lock.lock();
             } else {
                 new_lock->lock.lock_shared();
             }
             new_lock->next = chain.first;
-            chain.first = new_lock.get();
-            chain.latch.unlock();
-            return new_lock;
+            new_lock->edit_lock.unlock();
 
-        } else if (lock->isExpired()) {
+            chain.first = new_lock.get();
+            chain_latch.unlock();
+
+            return new_lock;
+        }
+        if (lock->ownership == LockMode::Unlocked || lock->isExpired()) {
             // lock is expired -> no active pointer
+            std::unique_lock edit_lock(lock->edit_lock);
             if (prevLock != nullptr) {
+                // not start
                 prevLock->next = lock->next;
+                edit_lock.unlock();
+                delete lock;
+                lock = prevLock->next;
             } else {
-                // only 1 element
-                lock = nullptr;
+                // at start
+                chain.first = lock->next;
+                edit_lock.unlock();
+                delete lock;
+                lock = chain.first;
             }
             continue;
         }
         // lock still active
         if (lock->item == dataItem) {
+            assert(!lock->isExpired());
+            if (lock->ownership == LockMode::Unlocked || lock->isExpired()){
+                continue;
+            }
+            assert(lock->owners.size() > 0);
             // found correct item
-            if (mode == LockMode::Shared) {
+            if (lock->ownership == LockMode::Shared && mode == LockMode::Shared) {
+                // shared | shared
+                chain_latch.unlock();
                 lock->lock.lock_shared();
+
+                lock->edit_lock.lock();
 
                 lock->ownership = mode;
                 lock->owners.push_back(&transaction);
                 lock->item = dataItem;
+
+                lock->edit_lock.unlock();
+            } else if (lock->ownership == LockMode::Exclusive && mode == LockMode::Shared){
+                // exclusive | shared
+                wfg.addWaitsFor(transaction, *lock);
+
+                chain_latch.unlock();
+                lock->lock.lock_shared();
+
+                lock->edit_lock.lock();
+
+                lock->ownership = mode;
+                lock->owners.push_back(&transaction);
+                lock->item = dataItem;
+
+                lock->edit_lock.unlock();
             } else {
+                // exclusive | exclusive
                 assert(mode == LockMode::Exclusive);
                 // need to wait since exclusive
                 wfg.addWaitsFor(transaction, *lock);
                 // no throw -> no deadlock
+                chain_latch.unlock();
                 lock->lock.lock();
+
+                lock->edit_lock.lock();
+
                 lock->ownership = mode;
                 lock->owners.push_back(&transaction);
                 lock->item = dataItem;
+                lock->edit_lock.unlock();
             }
-            chain.latch.unlock();
-            return std::shared_ptr<Lock>(lock);
+            if (lock->isExpired()) {
+                auto new_p = std::shared_ptr<Lock>(lock);
+                assert(!lock->isExpired());
+                return new_p;
+            } else {
+                return lock->getAsSharedPtr();
+            }
         }
         prevLock = lock;
         lock = lock->next;
