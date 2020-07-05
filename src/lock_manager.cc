@@ -123,6 +123,7 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
             if (node.transaction_id == old_id) {
                 // same -> need to be erased
                 node_list.erase(i);
+                assert(false);
             } else if (old_id < node.transaction_id) {
                 node.transaction_id -= 1;
             }
