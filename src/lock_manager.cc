@@ -321,7 +321,6 @@ std::shared_ptr<Lock> LockManager::acquireLock(Transaction &transaction, DataIte
 
             return new_lock;
         }
-        //assert(lock->ownership != LockMode::Unlocked && lock->owners.size() > 0 || lock->ownership == LockMode::Unlocked);
         if (lock->isExpired()) {
             assert(lock->waiting_queue.empty() && lock->owners.empty());
             // lock is expired -> no active pointer
@@ -345,7 +344,6 @@ std::shared_ptr<Lock> LockManager::acquireLock(Transaction &transaction, DataIte
             auto new_ptr = lock->shared_from_this();
             assert(!lock->isExpired());
 
-            //assert(lock->owners.size() > 0);
             // found correct item
             if (new_ptr->ownership == LockMode::Shared && mode == LockMode::Shared) {
                 // shared | shared
@@ -379,7 +377,6 @@ std::shared_ptr<Lock> LockManager::acquireLock(Transaction &transaction, DataIte
                 new_ptr->waiting_queue.erase(&transaction);
                 // we got the lock
                 // check waiting queue -> update graph
-                //wfg.remove_save(transaction);
                 for (auto* waiting_trans : new_ptr->waiting_queue) {
                     try {
                         wfg.updateWaitsFor(*waiting_trans, transaction);
@@ -454,7 +451,7 @@ LockMode LockManager::getLockMode(DataItem dataItem) const {
         }
     }
 }
-
+    
 void LockManager::deleteLock(Lock *lock) {
     Hash hash;
     auto bucket = hash(lock->item) % table.size();
