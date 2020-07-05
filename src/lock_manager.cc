@@ -90,7 +90,6 @@ void WaitsForGraph::addWaitsFor(const Transaction &transaction, const Lock &lock
             throw DeadLockError();
         }
     }
-
     if (checkForCycle()) {
         // reset graph to valid state
         removeTransaction(transaction);
@@ -114,7 +113,6 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
             node.second->transaction_id -= 1;
         }
     }
-    //consitencyCheck();
     // remove from adj
     adj.erase(adj.begin() + old_id);
     // delete occurrance from waiting for lists
@@ -451,7 +449,7 @@ LockMode LockManager::getLockMode(DataItem dataItem) const {
         }
     }
 }
-    
+
 void LockManager::deleteLock(Lock *lock) {
     Hash hash;
     auto bucket = hash(lock->item) % table.size();
