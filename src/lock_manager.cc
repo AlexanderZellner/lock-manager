@@ -62,6 +62,7 @@ void WaitsForGraph::addWaitsFor(const Transaction &transaction, const Lock &lock
         assert(num_nodes == current_nodes.size());
         Node f_node = Node(num_nodes, transaction);
         current_nodes.insert(std::make_pair(&transaction, f_node));
+        consitencyCheck();
         adj.resize(num_nodes + 1);
         adj.insert(adj.begin() + num_nodes++, std::list<Node>());
     }
@@ -72,13 +73,14 @@ void WaitsForGraph::addWaitsFor(const Transaction &transaction, const Lock &lock
         if (current_nodes.find(owner) == current_nodes.end()) {
             // to-node not in graph yet
             assert(num_nodes == current_nodes.size());
-            Node t_node = Node(num_nodes, *owner);
+            Node* t_node = new Node(num_nodes, *owner);
             current_nodes.insert(std::make_pair(owner, t_node));
+            consitencyCheck();
             adj.resize(num_nodes + 1);
             adj.insert(adj.begin() + num_nodes++, std::list<Node>());
         }
-        Node to_node = current_nodes.find(owner)->second;
-        assert(&from_node != & to_node);
+        Node* to_node = current_nodes.find(owner)->second;
+        assert(*from_node !=  *to_node);
         adj[from_node.transaction_id].push_back(to_node);
 
         if (checkForCycle()) {
@@ -110,6 +112,7 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
             node.second.transaction_id -= 1;
         }
     }
+    consitencyCheck();
     // remove from adj
     adj.erase(adj.begin() + to_erase->second.transaction_id);
     // delete occurrance from waiting for lists
@@ -126,6 +129,7 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
             ++i;
         }
     }
+    consitencyCheck();
     num_nodes--;
     assert(current_nodes.size() == num_nodes);
 }
@@ -142,11 +146,10 @@ void WaitsForGraph::remove_save(const Transaction &transaction) {
     for (auto node : current_nodes) {
         assert(node.second.transaction_id != to_erase->second.transaction_id);
         if (node.second.transaction_id > to_erase->second.transaction_id) {
-            auto before = node.second.transaction_id - 1;
             node.second.transaction_id -= 1;
-            assert(before == node.second.transaction_id);
         }
     }
+    consitencyCheck();
     // remove from adj
     adj.erase(adj.begin() + to_erase->second.transaction_id);
     // delete occurrance from waiting for lists
@@ -168,6 +171,7 @@ void WaitsForGraph::remove_save(const Transaction &transaction) {
             ++i;
         }
     }
+    consitencyCheck();
     num_nodes--;
     assert(current_nodes.size() == num_nodes);
 }
@@ -214,6 +218,7 @@ bool WaitsForGraph::updateWaitsFor(const Transaction &waiting_t, Transaction &ho
     // The old holding transaction finished
     // -> old waiters need to wait for the currently active transaction
     std::unique_lock graph_latch (latch);
+    consitencyCheck();
     assert(!checkForCycle());
     auto position = current_nodes.find(&waiting_t);
     if (position == current_nodes.end()) {
@@ -225,6 +230,7 @@ bool WaitsForGraph::updateWaitsFor(const Transaction &waiting_t, Transaction &ho
         adj.insert(adj.begin() + num_nodes++, std::list<Node>());
         position = current_nodes.find(&waiting_t);
     }
+    consitencyCheck();
     auto from_node = position->second;
     auto to_pos = current_nodes.find(&holding_t);
     if (to_pos == current_nodes.end()) {
@@ -236,16 +242,38 @@ bool WaitsForGraph::updateWaitsFor(const Transaction &waiting_t, Transaction &ho
         adj.insert(adj.begin() + num_nodes++, std::list<Node>());
         to_pos = current_nodes.find(&holding_t);
     }
+    consitencyCheck();
     auto to_node = to_pos->second;
     assert(&from_node != &to_node);
     assert(from_node.transaction_id == current_nodes.find(&waiting_t)->second.transaction_id);
     adj[from_node.transaction_id].push_back(to_node);
-
+    consitencyCheck();
     if (checkForCycle()) {
         // Should not happen
         throw DeadLockError();
     }
     return true;
+}
+
+
+// for debugging
+void WaitsForGraph::consitencyCheck() {
+    std::vector<bool> found;
+    found.resize(num_nodes + 1);
+    for (auto node_outer: current_nodes) {
+        for (auto node: current_nodes) {
+            if (node.second.transaction_id == node_outer.second.transaction_id && node.first != node_outer.first) {
+                std::runtime_error("Duplicate transaction id");
+            }
+        }
+        found.at(node_outer.second.transaction_id) = true;
+    }
+
+    for (auto i = 0; i < current_nodes.size(); ++i) {
+        // ensure no transaction is left out
+        assert(found.at(i));
+    }
+
 }
 // check if item already locked
 // use tryLock
@@ -328,15 +356,10 @@ std::shared_ptr<Lock> LockManager::acquireLock(Transaction &transaction, DataIte
                 // check waiting queue -> update graph
                 //wfg.remove_save(transaction);
                 for (auto* waiting_trans : new_ptr->waiting_queue) {
-                    bool worked = false;
                     try {
-                        worked = wfg.updateWaitsFor(*waiting_trans, transaction);
+                        wfg.updateWaitsFor(*waiting_trans, transaction);
                     } catch (DeadLockError&) {
                         assert(false);
-                    }
-                    if (!worked) {
-                        // node was not in graph yet
-                        wfg.addWaitsFor(*waiting_trans, *lock);
                     }
                 }
 

@@ -86,7 +86,7 @@ private:
   // TODO: add your implementation here
   uint16_t num_nodes = 0;
   std::vector<std::list<Node>> adj;
-  std::unordered_map<const Transaction*, Node> current_nodes;
+  std::unordered_map<const Transaction*, Node*> current_nodes;
   std::mutex latch;
 public:
   /// Add a wait-for relationship of the specified transaction on the specified
@@ -106,6 +106,8 @@ public:
   bool updateWaitsFor(const Transaction& waiting_t, Transaction &holding_t);
 
   void remove_save(const Transaction &transaction);
+
+  void consitencyCheck();
 };
 
 /// A lock manager for concurrency-safe acquiring and releasing locks
