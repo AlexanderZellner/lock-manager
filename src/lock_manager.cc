@@ -208,7 +208,6 @@ bool WaitsForGraph:: dfs(uint16_t id, const std::shared_ptr<bool>& visited, cons
         for (i = adj[id].begin(); i != adj[id].end(); ++i) {
             // Check if still a node
             if (current_nodes.find(&(*i).transaction) == current_nodes.end()) {
-                //adj[id].erase(i);
                 continue;
             }
             auto to = current_nodes.find(&(*i).transaction)->second->transaction_id;
