@@ -60,7 +60,7 @@ struct Lock : std::enable_shared_from_this<Lock> {
   std::shared_ptr<Lock> getAsSharedPtr() { return weak_from_this().lock(); }
 
   static std::shared_ptr<Lock> construct() {
-      return std::shared_ptr<Lock>(new Lock(0), [](Lock* lock){ /**/});
+      return std::shared_ptr<Lock>(new Lock(0), [](Lock*){ /**/});
   }
 
   bool isExpired() const {
@@ -83,7 +83,6 @@ struct Node {
 /// wait on another
 class WaitsForGraph {
 private:
-  // TODO: add your implementation here
   uint16_t num_nodes = 0;
   std::vector<std::list<Node>> adj;
   std::unordered_map<const Transaction*, Node*> current_nodes;
@@ -101,7 +100,7 @@ public:
 
   bool checkForCycle();
 
-  bool dfs(uint16_t id, std::shared_ptr<bool> visited, std::shared_ptr<bool> recStack);
+  bool dfs(uint16_t id, const std::shared_ptr<bool>& visited, const std::shared_ptr<bool>& recStack);
 
   bool updateWaitsFor(const Transaction& waiting_t, Transaction &holding_t);
 

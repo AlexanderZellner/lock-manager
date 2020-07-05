@@ -28,14 +28,14 @@ void LockManager::save_destruct(const Transaction &transaction, std::shared_ptr<
     Hash hash;
     auto bucket = hash(lock->item) % 1024;
 
-    Chain& chain = const_cast<Chain &>(table.at(bucket));
-    chain.latch.lock();
+    auto& chain = const_cast<Chain &>(table.at(bucket));
+    std::unique_lock chain_latch(chain.latch);
 
     auto count_before = lock->owners.size();
     lock->owners.erase(std::find(lock->owners.begin(), lock->owners.end(), &transaction));
     assert(count_before > lock->owners.size());
     if (lock->ownership == LockMode::Exclusive) {
-        assert(lock->owners.size() == 0);
+        assert(lock->owners.empty());
         lock->lock.unlock();
     } else if (lock->ownership == LockMode::Shared) {
         lock->lock.unlock_shared();
@@ -43,7 +43,7 @@ void LockManager::save_destruct(const Transaction &transaction, std::shared_ptr<
         assert(lock->ownership != LockMode::Unlocked);
     }
 
-    if (lock->owners.size() == 0) {
+    if (lock->owners.empty()) {
         lock->ownership = LockMode::Unlocked;
     }
 
@@ -51,7 +51,6 @@ void LockManager::save_destruct(const Transaction &transaction, std::shared_ptr<
     {
         auto scope_lock = std::move(lock);
     }
-    chain.latch.unlock();
 }
 // 1. Add new edges to Graph
 // 2. Check for cycle
@@ -193,7 +192,7 @@ bool WaitsForGraph::checkForCycle() {
     return false;
 }
 
-bool WaitsForGraph:: dfs(uint16_t id, std::shared_ptr<bool> visited, std::shared_ptr<bool> recStack) {
+bool WaitsForGraph:: dfs(uint16_t id, const std::shared_ptr<bool>& visited, const std::shared_ptr<bool>& recStack) {
     if (!visited.get()[id]) {
         visited.get()[id] = true;
         recStack.get()[id] = true;
@@ -266,13 +265,13 @@ void WaitsForGraph::consitencyCheck() {
     for (auto node_outer: current_nodes) {
         for (auto node: current_nodes) {
             if (node.second->transaction_id == node_outer.second->transaction_id && node.first != node_outer.first) {
-                std::runtime_error("Duplicate transaction id");
+                throw std::runtime_error("Duplicate transaction id");
             }
         }
         found.at(node_outer.second->transaction_id) = true;
     }
 
-    for (auto i = 0; i < current_nodes.size(); ++i) {
+    for (uint16_t i = 0; i < current_nodes.size(); ++i) {
         // ensure no transaction is left out
         assert(found.at(i));
     }
@@ -288,7 +287,7 @@ std::shared_ptr<Lock> LockManager::acquireLock(Transaction &transaction, DataIte
     Hash hash;
     auto bucket = hash(dataItem) % table.size();
 
-    Chain& chain = const_cast<Chain &>(table.at(bucket));
+    auto& chain = const_cast<Chain &>(table.at(bucket));
     std::unique_lock chain_latch(chain.latch);
 
     auto lock = chain.first;
@@ -434,8 +433,8 @@ LockMode LockManager::getLockMode(DataItem dataItem) const {
     Hash hash;
     auto bucket = hash(dataItem) % table.size();
     // Chain
-    Chain& chain = const_cast<Chain &>(table.at(bucket));
-    std::unique_lock(chain.latch);
+    auto&chain = const_cast<Chain &>(table.at(bucket));
+    std::unique_lock chain_lock(chain.latch);
 
     auto lock = chain.first;
     while (true) {
@@ -449,7 +448,20 @@ LockMode LockManager::getLockMode(DataItem dataItem) const {
 }
 
 void LockManager::deleteLock(Lock *lock) {
-
+    Hash hash;
+    auto bucket = hash(lock->item) % table.size();
+    // Chain
+    auto&chain = const_cast<Chain &>(table.at(bucket));
+    std::unique_lock chain_latch(chain.latch);
+    auto next = chain.first;
+    while (next != nullptr) {
+        if (next == lock) {
+            // found lock
+            delete next;
+            return;
+        }
+        next = next->next;
+    }
 }
 
 } // namespace moderndbs
