@@ -1,6 +1,7 @@
 #include <unordered_map>
 #include "moderndbs/lock_manager.h"
 #include "cassert"
+#include <algorithm>
 
 namespace moderndbs {
 
@@ -9,7 +10,6 @@ namespace moderndbs {
 void Transaction::addLock(DataItem item, LockMode mode) {
     // get new Lock with mode
     std::shared_ptr<Lock> lock = lockManager->acquireLock(*this, item, mode);
-    assert(lockManager->getLockMode(item) == mode);
     // add to lock list
     assert(lock != nullptr);
     locks.push_back(lock);
@@ -42,9 +42,11 @@ void LockManager::save_destruct(const Transaction &transaction, std::shared_ptr<
     } else {
         assert(lock->ownership != LockMode::Unlocked);
     }
+
     if (lock->owners.size() == 0) {
         lock->ownership = LockMode::Unlocked;
     }
+
     wfg.remove_save(transaction);
     {
         auto scope_lock = std::move(lock);
@@ -378,13 +380,11 @@ std::shared_ptr<Lock> LockManager::acquireLock(Transaction &transaction, DataIte
                         assert(false);
                     }
                 }
-
                 new_ptr->ownership = mode;
                 new_ptr->owners.push_back(&transaction);
-
             } else {
                 // exclusive or shared | exclusive
-                //assert(mode == LockMode::Exclusive);
+                assert(mode != LockMode::Unlocked);
                 // need to wait since exclusive
                 wfg.addWaitsFor(transaction, *lock);
                 // no throw -> no deadlock
@@ -449,6 +449,7 @@ LockMode LockManager::getLockMode(DataItem dataItem) const {
 }
 
 void LockManager::deleteLock(Lock *lock) {
+
 }
 
 } // namespace moderndbs
