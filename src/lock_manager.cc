@@ -188,8 +188,8 @@ void WaitsForGraph::remove_save(const Transaction &transaction) {
 // Runs DFS in graph -> check for cycle
 /// @return true for cycle, false for no cycle
 bool WaitsForGraph::checkForCycle() {
-    std::shared_ptr<bool> visited (new bool[num_nodes] { 0 } );
-    std::shared_ptr<bool> recStack (new bool[num_nodes] { 0 });
+    std::shared_ptr<bool> visited (new bool[num_nodes] { false } );
+    std::shared_ptr<bool> recStack (new bool[num_nodes] { false });
 
     for (uint16_t i = 0; i < num_nodes; ++i) {
         if (dfs(i, visited, recStack)) {
