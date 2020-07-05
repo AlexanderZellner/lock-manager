@@ -123,9 +123,11 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
             if (node.transaction_id == old_id) {
                 // same -> need to be erased
                 node_list.erase(i);
-                assert(false);
             } else if (old_id < node.transaction_id) {
                 node.transaction_id -= 1;
+            }
+            if (node_list.empty() || i == node_list.end()) {
+                break;
             }
             ++i;
         }
@@ -168,6 +170,9 @@ void WaitsForGraph::remove_save(const Transaction &transaction) {
                 node_list.erase(i);
             } else if (old_id < node.transaction_id) {
                 node.transaction_id -= 1;
+            }
+            if (node_list.empty() || i == node_list.end()) {
+                break;
             }
             ++i;
         }
