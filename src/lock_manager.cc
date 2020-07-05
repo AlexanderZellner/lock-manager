@@ -62,7 +62,7 @@ void WaitsForGraph::addWaitsFor(const Transaction &transaction, const Lock &lock
         assert(num_nodes == current_nodes.size());
         Node* f_node = new Node(num_nodes, transaction);
         current_nodes.insert(std::make_pair(&transaction, f_node));
-        consitencyCheck();
+        //consitencyCheck();
         adj.resize(num_nodes + 1);
         adj.insert(adj.begin() + num_nodes++,std::list<Node>());
     }
@@ -75,7 +75,7 @@ void WaitsForGraph::addWaitsFor(const Transaction &transaction, const Lock &lock
             assert(num_nodes == current_nodes.size());
             Node* t_node = new Node(num_nodes, *owner);
             current_nodes.insert(std::make_pair(owner, t_node));
-            consitencyCheck();
+            //consitencyCheck();
             adj.resize(num_nodes + 1);
             adj.insert(adj.begin() + num_nodes++, std::list<Node>());
         }
@@ -113,7 +113,7 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
             node.second->transaction_id -= 1;
         }
     }
-    consitencyCheck();
+    //consitencyCheck();
     // remove from adj
     adj.erase(adj.begin() + old_id);
     // delete occurrance from waiting for lists
@@ -130,7 +130,7 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
             ++i;
         }
     }
-    consitencyCheck();
+    //consitencyCheck();
     num_nodes--;
     assert(current_nodes.size() == num_nodes);
 }
@@ -151,7 +151,7 @@ void WaitsForGraph::remove_save(const Transaction &transaction) {
             node.second->transaction_id -= 1;
         }
     }
-    consitencyCheck();
+    //consitencyCheck();
     // remove from adj
     adj.erase(adj.begin() + old_id);
     // delete occurrance from waiting for lists
@@ -173,7 +173,7 @@ void WaitsForGraph::remove_save(const Transaction &transaction) {
             ++i;
         }
     }
-    consitencyCheck();
+    //consitencyCheck();
     num_nodes--;
     assert(current_nodes.size() == num_nodes);
 }
@@ -220,7 +220,7 @@ bool WaitsForGraph::updateWaitsFor(const Transaction &waiting_t, Transaction &ho
     // The old holding transaction finished
     // -> old waiters need to wait for the currently active transaction
     std::unique_lock graph_latch (latch);
-    consitencyCheck();
+    //consitencyCheck();
     assert(!checkForCycle());
     auto position = current_nodes.find(&waiting_t);
     if (position == current_nodes.end()) {
@@ -232,7 +232,7 @@ bool WaitsForGraph::updateWaitsFor(const Transaction &waiting_t, Transaction &ho
         adj.insert(adj.begin() + num_nodes++, std::list<Node>());
         position = current_nodes.find(&waiting_t);
     }
-    consitencyCheck();
+    //consitencyCheck();
     auto from_node = position->second;
     auto to_pos = current_nodes.find(&holding_t);
     if (to_pos == current_nodes.end()) {
@@ -244,12 +244,12 @@ bool WaitsForGraph::updateWaitsFor(const Transaction &waiting_t, Transaction &ho
         adj.insert(adj.begin() + num_nodes++, std::list<Node>());
         to_pos = current_nodes.find(&holding_t);
     }
-    consitencyCheck();
+    //consitencyCheck();
     auto to_node = to_pos->second;
     assert(&from_node != &to_node);
     assert(from_node->transaction_id == current_nodes.find(&waiting_t)->second->transaction_id);
     adj[from_node->transaction_id].push_back(*to_node);
-    consitencyCheck();
+    //consitencyCheck();
     if (checkForCycle()) {
         // Should not happen
         throw DeadLockError();
