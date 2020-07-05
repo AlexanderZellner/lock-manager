@@ -44,6 +44,22 @@ TEST(WaitsForTest, CycleOfThree) {
 }
 
 // NOLINTNEXTLINE
+TEST(WaitsForTest, CycleOfThree2) {
+    Transaction t1, t2, t3, t4;
+    auto l1 = Lock(1), l2 = Lock(2), l3 = Lock(3);
+    l1.ownership = l2.ownership = l3.ownership = LockMode::Exclusive;
+    l1.owners.push_back(&t1);
+    l2.owners.push_back(&t2);
+    l3.owners.push_back(&t3);
+
+    auto wfg = WaitsForGraph();
+    EXPECT_NO_THROW(wfg.addWaitsFor(t1, l3));
+    EXPECT_NO_THROW(wfg.addWaitsFor(t4, l2));
+    EXPECT_NO_THROW(wfg.addWaitsFor(t3, l2));
+    EXPECT_THROW(wfg.addWaitsFor(t2, l1), DeadLockError);
+}
+
+// NOLINTNEXTLINE
 TEST(WaitsForTest, NoDeadLock) {
   Transaction t0, t1, t2, t3;
   auto l0 = Lock(0), l1 = Lock(1), l2 = Lock(2), l3 = Lock(3);
