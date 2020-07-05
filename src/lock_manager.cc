@@ -86,6 +86,7 @@ void WaitsForGraph::addWaitsFor(const Transaction &transaction, const Lock &lock
         if (checkForCycle()) {
             // reset graph to valid state
             removeTransaction(transaction);
+            delete from_node;
             throw DeadLockError();
         }
     }
@@ -128,8 +129,9 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
             }
             if (node_list.empty() || i == node_list.end()) {
                 break;
+            } else {
+                ++i;
             }
-            ++i;
         }
     }
     //consitencyCheck();
@@ -173,8 +175,9 @@ void WaitsForGraph::remove_save(const Transaction &transaction) {
             }
             if (node_list.empty() || i == node_list.end()) {
                 break;
+            } else {
+                ++i;
             }
-            ++i;
         }
     }
     //consitencyCheck();
@@ -185,8 +188,8 @@ void WaitsForGraph::remove_save(const Transaction &transaction) {
 // Runs DFS in graph -> check for cycle
 /// @return true for cycle, false for no cycle
 bool WaitsForGraph::checkForCycle() {
-    std::shared_ptr<bool> visited (new bool[num_nodes]);
-    std::shared_ptr<bool> recStack (new bool[num_nodes]);
+    std::shared_ptr<bool> visited (new bool[num_nodes] { 0 } );
+    std::shared_ptr<bool> recStack (new bool[num_nodes] { 0 });
 
     for (uint16_t i = 0; i < num_nodes; ++i) {
         if (dfs(i, visited, recStack)) {
@@ -326,11 +329,13 @@ std::shared_ptr<Lock> LockManager::acquireLock(Transaction &transaction, DataIte
             if (prevLock != nullptr) {
                 // not start
                 prevLock->next = lock->next;
+                lock = nullptr;
                 delete lock;
                 lock = prevLock->next;
             } else {
                 // at start
                 chain.first = lock->next;
+                lock = nullptr;
                 delete lock;
                 lock = chain.first;
             }
