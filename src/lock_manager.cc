@@ -119,6 +119,7 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
     // delete occurrance from waiting for lists
     for (auto& node_list : adj) {
         auto i = node_list.begin();
+        assert(false);
         for (auto node : node_list) {
             if (node.transaction_id == old_id) {
                 // same -> need to be erased
@@ -133,7 +134,6 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
     //consitencyCheck();
     num_nodes--;
     assert(current_nodes.size() == num_nodes);
-    assert(false);
 }
 /// only used when removing a transaction gracefully
 void WaitsForGraph::remove_save(const Transaction &transaction) {
