@@ -81,7 +81,7 @@ TEST(WaitsForTest, DeadLockFailsGracefully) {
 }
 
 // NOLINTNEXTLINE
-TEST(WaitsForTest, CycleOfThree2) {
+TEST(WaitsForTest, CycleOfFour) {
     Transaction t1, t2, t3, t4;
     auto l1 = Lock(6), l2 = Lock(14), l3 = Lock(1), l4 = Lock(13);
     l4.ownership = l2.ownership = LockMode::Exclusive;
@@ -96,6 +96,24 @@ TEST(WaitsForTest, CycleOfThree2) {
     EXPECT_NO_THROW(wfg.addWaitsFor(t2, l3));
     EXPECT_NO_THROW(wfg.addWaitsFor(t3, l4));
     EXPECT_THROW(wfg.addWaitsFor(t4, l1), DeadLockError);
+}
+
+// NOLINTNEXTLINE
+TEST(WaitsForTest, CycleOfTwoSpecial) {
+    Transaction t1, t2, t3, t4;
+    auto l1 = Lock(1), l2 = Lock(2), l3 = Lock(3), l4 = Lock(4);
+    l4.ownership = l2.ownership = LockMode::Exclusive;
+    l1.ownership = l3.ownership = moderndbs::LockMode::Shared;
+    l1.owners.push_back(&t1);
+    l2.owners.push_back(&t1);
+    l3.owners.push_back(&t2);
+    l4.owners.push_back(&t2);
+
+    auto wfg = WaitsForGraph();
+    EXPECT_NO_THROW(wfg.addWaitsFor(t1, l3));
+    EXPECT_NO_THROW(wfg.addWaitsFor(t4, l4));
+    EXPECT_NO_THROW(wfg.addWaitsFor(t3, l1));
+    EXPECT_THROW(wfg.addWaitsFor(t2, l2), DeadLockError);
 }
 
 // NOLINTNEXTLINE
