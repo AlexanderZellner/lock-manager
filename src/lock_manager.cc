@@ -100,7 +100,6 @@ void WaitsForGraph::addWaitsFor(const Transaction &transaction, const Lock &lock
 /// used to remove transactions causing a cycle
 void WaitsForGraph::removeTransaction(const Transaction &transaction) {
     // remove from current_nodes
-    assert(false);
     auto to_erase = current_nodes.find(&transaction);
     if (to_erase == current_nodes.end()) {
         return;
@@ -116,6 +115,7 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
     }
     //consitencyCheck();
     // remove from adj
+    assert(false);
     adj.erase(adj.begin() + old_id);
     // delete occurrance from waiting for lists
     for (auto& node_list : adj) {
