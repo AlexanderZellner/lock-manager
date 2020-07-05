@@ -119,13 +119,11 @@ void WaitsForGraph::removeTransaction(const Transaction &transaction) {
     // delete occurrance from waiting for lists
     for (auto& node_list : adj) {
         auto i = node_list.begin();
-        assert(false);
         for (auto node : node_list) {
             if (node.transaction_id == old_id) {
                 // same -> need to be erased
                 node_list.erase(i);
-            }
-            if (old_id < node.transaction_id) {
+            } else if (old_id < node.transaction_id) {
                 node.transaction_id -= 1;
             }
             ++i;
@@ -167,8 +165,7 @@ void WaitsForGraph::remove_save(const Transaction &transaction) {
             if (node.transaction_id == old_id) {
                 // same -> need to be erased
                 node_list.erase(i);
-            }
-            if (old_id < node.transaction_id) {
+            } else if (old_id < node.transaction_id) {
                 node.transaction_id -= 1;
             }
             ++i;
