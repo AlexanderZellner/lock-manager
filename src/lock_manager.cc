@@ -265,7 +265,7 @@ void WaitsForGraph::consitencyCheck() {
     for (auto node_outer: current_nodes) {
         for (auto node: current_nodes) {
             if (node.second->transaction_id == node_outer.second->transaction_id && node.first != node_outer.first) {
-                throw std::runtime_error("Duplicate transaction id");
+                assert(false);
             }
         }
         found.at(node_outer.second->transaction_id) = true;
